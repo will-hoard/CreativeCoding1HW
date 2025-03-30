@@ -1,12 +1,11 @@
 function setup() {
-    createCanvas(500, 700); // Taller canvas for your height
+    createCanvas(500, 700); 
 }
 
 function draw() {
-    // Blue background
     background(100, 150, 255);
     
-    // Title
+
     textSize(24);
     fill(255);
     text("My Geometric Self-Portrait", 100, 30);
@@ -33,11 +32,11 @@ function draw() {
     circle(250, 90, 20);
     circle(250, 72, 13);
     
-    // Pentagonal face (using triangle and rectangle)
+    // Face (using triangle and rectangle)
     fill(230, 180, 150); // Skin tone
-    // Top part of face (rectangle)
+    // Top part of face 
     rect(175, 110, 150, 100, 20);
-    // Chin (triangle pointing down)
+    // Chin 
     triangle(175, 200, 325, 200, 250, 250);
     
     // Eyes
@@ -54,7 +53,6 @@ function draw() {
     line(205, 130, 235, 130); // Left eyebrow
     line(265, 130, 295, 130); // Right eyebrow
     
-    // Nose
     noStroke();
     
     // Mouth
