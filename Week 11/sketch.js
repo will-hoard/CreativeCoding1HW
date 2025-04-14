@@ -58,7 +58,7 @@ function draw() {
     // Draw exit
     drawExit();
     
-    // Handle player movement if game not won
+    // If game not won
     if (!gameWon) {
         handlePlayerMovement();
     }
@@ -69,7 +69,7 @@ function draw() {
     // Check win condition
     checkWin();
     
-    // Display win message if game is won
+    // If game is won
     if (gameWon) {
         displayWinMessage();
     }
