@@ -81,8 +81,8 @@ function createObstacles() {
   // Create 3 asteroids of different sizes and colors
   asteroids = [
     { x: 600, y: 100, size: 40, color: [150, 75, 0], xSpeed: 2, ySpeed: 1.5 },
-    { x: 400, y: 400, size: 60, color: [100, 50, 0], xSpeed: -1, ySpeed: 2 },
-    { x: 200, y: 300, size: 30, color: [200, 100, 0], xSpeed: 1.5, ySpeed: -1 }
+    { x: 400, y: 400, size: 60, color: [130, 50, 0], xSpeed: -1, ySpeed: 2 },
+    { x: 200, y: 300, size: 30, color: [210, 100, 0], xSpeed: 1.5, ySpeed: -1 }
   ];
 }
 
