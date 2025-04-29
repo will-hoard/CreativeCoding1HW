@@ -9,7 +9,7 @@ function preload() {
   villainImg = loadImage('assets/Villain.png');
   squishSound = loadSound('assets/Squish sound.mp3');
   gameOverImg = loadImage('assets/Game Over.png');
-  bulletImg = loadImage('assets/Bullet.png');
+  bulletImg = loadImage('assets/bullet.png');
   shootSound = loadSound('assets/Shoot.mp3');
   poofImg = loadImage('assets/Poof.png');
   poofSound = loadSound('assets/Poof.mp3');
