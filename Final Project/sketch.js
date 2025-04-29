@@ -1,10 +1,6 @@
 // ===== PRELOAD =====
-let bgMusic;
-let bugImg;
-let villainImg;
-let squishSound;
-let gameOverImg;
-let bgImg;
+let bgMusic, bugImg, villainImg, squishSound, gameOverImg, bgImg;
+let bulletImg, shootSound, poofImg, poofSound;
 
 function preload() {
   bgImg = loadImage('assets/Background.jpg');
@@ -13,23 +9,29 @@ function preload() {
   villainImg = loadImage('assets/Villain.png');
   squishSound = loadSound('assets/Squish sound.mp3');
   gameOverImg = loadImage('assets/Game Over.png');
+  bulletImg = loadImage('assets/Bullet.png');
+  shootSound = loadSound('assets/Shoot.mp3');
+  poofImg = loadImage('assets/Poof.png');
+  poofSound = loadSound('assets/Poof.mp3');
 }
 
 // ===== GAME VARIABLES =====
-let bug;
-let obstacles = [];
-let score = 0;
-let gameOver = false;
-let gameStarted = false;
-let debugMode = false; // Collision boxes disabled by default
-let soundEnabled = false;
-let soundButton;
+let bug, obstacles = [], gameOver = false, gameStarted = false;
+let debugMode = false, soundEnabled = false, soundButton;
+let bullets = [], lastShot = 0, shootCooldown = 15, bulletSpeed = 10;
+let poofs = [], lastMoveDirection = 'up'; // Tracks firing direction
+const VILLAIN_SPAWN_RATE = 60;
+const VILLAIN_SPEED = 3;
+
+// Scoring
+let timeAlive = 0;    // Frames survived
+let villainKills = 0; // Enemies defeated
 
 // ===== SETUP =====
 function setup() {
   createCanvas(800, 600);
   
-  // Sound toggle button
+  // Sound button
   soundButton = createButton('🔇 Enable Sound');
   soundButton.position(20, 20);
   soundButton.mousePressed(toggleSound);
@@ -41,7 +43,7 @@ function setup() {
   soundButton.style('border', 'none');
   soundButton.style('border-radius', '5px');
   
-  // Initialize bug with 3x size
+  // Initialize bug
   bug = {
     x: width / 2,
     y: height - 100,
@@ -49,31 +51,33 @@ function setup() {
     h: 90,
     speed: 5
   };
+  
+  document.addEventListener('keydown', spacePressed);
 }
 
-// ===== DRAW =====
+// ===== MAIN GAME LOOP =====
 function draw() {
   imageMode(CORNER);
   if (bgImg) image(bgImg, 0, 0, width, height);
   else background(135, 206, 235);
   
-  if (!gameStarted) {
-    startScreen();
-  } else if (!gameOver) {
-    playGame();
-  } else {
-    endGame();
-  }
+  if (!gameStarted) startScreen();
+  else if (!gameOver) playGame();
+  else endGame();
 }
 
 // ===== GAME SCREENS =====
 function startScreen() {
   soundButton.show();
-  
   fill(255);
   textSize(32);
   textAlign(CENTER);
-  text("BUG ESCAPE", width / 2, height / 2 - 50);
+  text("BUG ESCAPE", width / 2, height / 2 - 80);
+  
+  // New instructions
+  textSize(18);
+  text("ARROWS: Move & Aim\nSPACE: Shoot in moving direction", width / 2, height / 2 - 20);
+  
   textSize(20);
   text("Click to Start", width / 2, height / 2 + 50);
   
@@ -85,103 +89,200 @@ function startScreen() {
 }
 
 function playGame() {
+  // Update time
+  timeAlive++;
+  
   // Draw bug
   imageMode(CENTER);
   if (bugImg) image(bugImg, bug.x, bug.y, bug.w, bug.h);
-  else {
-    fill(255, 0, 0);
-    ellipse(bug.x, bug.y, bug.w, bug.h);
-  }
   
-  // Move bug
+  // Movement (updates firing direction)
   handleBugMovement();
   
-  // Spawn villains from all sides
-  if (frameCount % 60 === 0) {
-    spawnVillain();
-  }
+  // Spawn villains
+  if (frameCount % VILLAIN_SPAWN_RATE === 0) spawnVillain();
   
-  // Draw and move villains
-  imageMode(CENTER);
-  for (let i = obstacles.length - 1; i >= 0; i--) {
-    let obs = obstacles[i];
-    if (villainImg) image(villainImg, obs.x, obs.y, obs.w, obs.h);
-    else rect(obs.x, obs.y, obs.w, obs.h);
-    
-    // Movement based on direction
-    if (obs.direction === 'top') obs.y += obs.speed;
-    else if (obs.direction === 'bottom') obs.y -= obs.speed;
-    else if (obs.direction === 'left') obs.x += obs.speed;
-    else if (obs.direction === 'right') obs.x -= obs.speed;
-    
-    // Remove off-screen villains
-    if (obs.y < -100 || obs.y > height + 100 || 
-        obs.x < -100 || obs.x > width + 100) {
-      obstacles.splice(i, 1);
-    }
-    
-    // Check collision
-    if (isColliding(bug, obs)) {
-      gameOver = true;
-      if (soundEnabled && squishSound) squishSound.play();
-      if (bgMusic) bgMusic.stop();
-    }
-  }
+  // Update systems
+  updateBullets();
+  updateVillains();
+  updatePoofs();
   
-  // Score
-  score++;
-  drawScore();
+  // Display stats
+  drawStats();
 }
 
+function drawStats() {
+  fill(255);
+  textSize(24);
+  textAlign(LEFT);
+  text("Time Alive: " + floor(timeAlive/60) + "s", 20, 40);
+  text("Score: " + villainKills, 20, 70);
+}
+
+// ===== MOVEMENT & SHOOTING =====
+function handleBugMovement() {
+  if (keyIsDown(LEFT_ARROW)) {
+    bug.x = max(bug.x - bug.speed, bug.w/2);
+    lastMoveDirection = 'left';
+  }
+  if (keyIsDown(RIGHT_ARROW)) {
+    bug.x = min(bug.x + bug.speed, width - bug.w/2);
+    lastMoveDirection = 'right';
+  }
+  if (keyIsDown(UP_ARROW)) {
+    bug.y = max(bug.y - bug.speed, bug.h/2);
+    lastMoveDirection = 'up';
+  }
+  if (keyIsDown(DOWN_ARROW)) {
+    bug.y = min(bug.y + bug.speed, height - bug.h/2);
+    lastMoveDirection = 'down';
+  }
+}
+
+function spacePressed(e) {
+  if (e.code === 'Space' && gameStarted && !gameOver) shoot();
+}
+
+function shoot() {
+  if (frameCount - lastShot > shootCooldown) {
+    let bullet = {
+      x: bug.x,
+      y: bug.y,
+      w: 60,  // 4x size
+      h: 120,
+      speed: bulletSpeed,
+      direction: lastMoveDirection
+    };
+    
+    // Adjust spawn position
+    switch(lastMoveDirection) {
+      case 'up': bullet.y -= bug.h/2; break;
+      case 'down': bullet.y += bug.h/2; break;
+      case 'left': bullet.x -= bug.w/2; break;
+      case 'right': bullet.x += bug.w/2; break;
+    }
+    
+    bullets.push(bullet);
+    lastShot = frameCount;
+    if (soundEnabled && shootSound) shootSound.play();
+  }
+}
+
+// ===== BULLET SYSTEM =====
+function updateBullets() {
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    let b = bullets[i];
+    
+    // Move based on direction
+    switch(b.direction) {
+      case 'up': b.y -= b.speed; break;
+      case 'down': b.y += b.speed; break;
+      case 'left': b.x -= b.speed; break;
+      case 'right': b.x += b.speed; break;
+    }
+    
+    // Rotated drawing
+    push();
+    imageMode(CENTER);
+    translate(b.x, b.y);
+    switch(b.direction) {
+      case 'left': rotate(-HALF_PI); break;
+      case 'right': rotate(HALF_PI); break;
+      case 'down': rotate(PI); break;
+    }
+    if (bulletImg) image(bulletImg, 0, 0, b.w, b.h);
+    pop();
+    
+    // Remove off-screen
+    if (b.x < -100 || b.x > width + 100 || b.y < -100 || b.y > height + 100) {
+      bullets.splice(i, 1);
+      continue;
+    }
+    
+    // Check collisions
+    for (let j = obstacles.length - 1; j >= 0; j--) {
+      if (isColliding(b, obstacles[j])) {
+        createPoof(obstacles[j].x, obstacles[j].y);
+        obstacles.splice(j, 1);
+        bullets.splice(i, 1);
+        villainKills++;
+        break;
+      }
+    }
+  }
+}
+
+// ===== VILLAIN SYSTEM =====
 function spawnVillain() {
   let size = 120;
-  let speed = random(2, 5);
   let side = floor(random(4));
   let newVillain;
   
   switch(side) {
-    case 0: // Top
-      newVillain = { x: random(width), y: -size/2, w: size, h: size, speed: speed, direction: 'top' };
-      break;
-    case 1: // Right
-      newVillain = { x: width + size/2, y: random(height), w: size, h: size, speed: speed, direction: 'right' };
-      break;
-    case 2: // Bottom
-      newVillain = { x: random(width), y: height + size/2, w: size, h: size, speed: speed, direction: 'bottom' };
-      break;
-    case 3: // Left
-      newVillain = { x: -size/2, y: random(height), w: size, h: size, speed: speed, direction: 'left' };
-      break;
+    case 0: newVillain = { x: random(width), y: -size/2, w: size, h: size, speed: VILLAIN_SPEED, direction: 'top' }; break;
+    case 1: newVillain = { x: width + size/2, y: random(height), w: size, h: size, speed: VILLAIN_SPEED, direction: 'right' }; break;
+    case 2: newVillain = { x: random(width), y: height + size/2, w: size, h: size, speed: VILLAIN_SPEED, direction: 'bottom' }; break;
+    case 3: newVillain = { x: -size/2, y: random(height), w: size, h: size, speed: VILLAIN_SPEED, direction: 'left' }; break;
   }
   
   obstacles.push(newVillain);
 }
 
-function endGame() {
-  imageMode(CENTER);
-  if (gameOverImg) {
-    image(gameOverImg, width/2, height/2, 400, 200);
-  }
-  
-  fill(255);
-  textSize(24);
-  textAlign(CENTER);
-  text("Score: " + score, width/2, height/2 + 100);
-  text("Press R to Restart", width/2, height/2 + 150);
-  
-  if (keyIsDown(82)) {
-    resetGame();
+function updateVillains() {
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    let obs = obstacles[i];
+    
+    // Movement
+    if (obs.direction === 'top') obs.y += obs.speed;
+    else if (obs.direction === 'bottom') obs.y -= obs.speed;
+    else if (obs.direction === 'left') obs.x += obs.speed;
+    else if (obs.direction === 'right') obs.x -= obs.speed;
+    
+    // Drawing
+    imageMode(CENTER);
+    if (villainImg) image(villainImg, obs.x, obs.y, obs.w, obs.h);
+    
+    // Collision with bug
+    if (isColliding(bug, obs)) {
+      gameOver = true;
+      if (soundEnabled) {
+        squishSound.play();
+        bgMusic.stop();
+      }
+    }
+    
+    // Remove off-screen
+    if (obs.y < -100 || obs.y > height + 100 || obs.x < -100 || obs.x > width + 100) {
+      obstacles.splice(i, 1);
+    }
   }
 }
 
-// ===== GAME FUNCTIONS =====
-function handleBugMovement() {
-  if (keyIsDown(LEFT_ARROW)) bug.x = max(bug.x - bug.speed, bug.w/2);
-  if (keyIsDown(RIGHT_ARROW)) bug.x = min(bug.x + bug.speed, width - bug.w/2);
-  if (keyIsDown(UP_ARROW)) bug.y = max(bug.y - bug.speed, bug.h/2);
-  if (keyIsDown(DOWN_ARROW)) bug.y = min(bug.y + bug.speed, height - bug.h/2);
+// ===== POOF EFFECTS =====
+function createPoof(x, y) {
+  poofs.push({
+    x: x,
+    y: y,
+    size: 80,
+    frame: 0,
+    maxFrames: 10
+  });
+  if (soundEnabled && poofSound) poofSound.play();
 }
 
+function updatePoofs() {
+  for (let i = poofs.length - 1; i >= 0; i--) {
+    poofs[i].frame++;
+    imageMode(CENTER);
+    image(poofImg, poofs[i].x, poofs[i].y, poofs[i].size, poofs[i].size);
+    
+    if (poofs[i].frame >= poofs[i].maxFrames) {
+      poofs.splice(i, 1);
+    }
+  }
+}
+
+// ===== CORE FUNCTIONS =====
 function isColliding(a, b) {
   const aWidth = a.w * 0.6;
   const aHeight = a.h * 0.6;
@@ -196,16 +297,26 @@ function isColliding(a, b) {
   );
 }
 
-function drawScore() {
+function endGame() {
+  imageMode(CENTER);
+  if (gameOverImg) image(gameOverImg, width/2, height/2, 400, 200);
+  
   fill(255);
   textSize(24);
-  textAlign(LEFT);
-  text("Score: " + score, 20, 40);
+  textAlign(CENTER);
+  text("Time Alive: " + floor(timeAlive/60) + "s", width/2, height/2 + 100);
+  text("Score: " + villainKills, width/2, height/2 + 130);
+  text("Press R to Restart", width/2, height/2 + 180);
+  
+  if (keyIsDown(82)) resetGame();
 }
 
 function resetGame() {
-  score = 0;
+  timeAlive = 0;
+  villainKills = 0;
   obstacles = [];
+  bullets = [];
+  poofs = [];
   gameOver = false;
   gameStarted = false;
   bug.x = width / 2;
@@ -213,7 +324,7 @@ function resetGame() {
   if (soundEnabled && bgMusic) bgMusic.loop();
 }
 
-// ===== SOUND FUNCTIONS =====
+// ===== SOUND SYSTEM =====
 function toggleSound() {
   soundEnabled = !soundEnabled;
   soundButton.html(soundEnabled ? '🔊 Sound On' : '🔇 Sound Off');
@@ -231,13 +342,9 @@ function toggleSound() {
 }
 
 function startAudioContext() {
-  if (soundEnabled && bgMusic) {
-    bgMusic.loop();
-  }
+  if (soundEnabled && bgMusic) bgMusic.loop();
 }
 
 function keyPressed() {
-  if (key === 'd' || key === 'D') {
-    debugMode = !debugMode;
-  }
+  if (key === 'd' || key === 'D') debugMode = !debugMode;
 }
