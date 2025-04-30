@@ -1,4 +1,3 @@
-// ===== PRELOAD =====
 let bgMusic, bugImg, villainImg, squishSound, gameOverImg, bgImg;
 let bulletImg, shootSound, poofImg, poofSound;
 
@@ -15,23 +14,20 @@ function preload() {
   poofSound = loadSound('assets/Poof.mp3');
 }
 
-// ===== GAME VARIABLES =====
 let bug, obstacles = [], gameOver = false, gameStarted = false;
 let debugMode = false, soundEnabled = false, soundButton;
 let bullets = [], lastShot = 0, shootCooldown = 15, bulletSpeed = 10;
-let poofs = [], lastMoveDirection = 'up'; // Tracks firing direction
+let poofs = [], lastMoveDirection = 'up'; 
 const VILLAIN_SPAWN_RATE = 60;
 const VILLAIN_SPEED = 3;
 
-// Scoring
-let timeAlive = 0;    // Frames survived
-let villainKills = 0; // Enemies defeated
 
-// ===== SETUP =====
+let timeAlive = 0;    
+let villainKills = 0; 
+
 function setup() {
   createCanvas(800, 600);
   
-  // Sound button
   soundButton = createButton('🔇 Enable Sound');
   soundButton.position(20, 20);
   soundButton.mousePressed(toggleSound);
@@ -43,7 +39,6 @@ function setup() {
   soundButton.style('border', 'none');
   soundButton.style('border-radius', '5px');
   
-  // Initialize bug
   bug = {
     x: width / 2,
     y: height - 100,
@@ -55,7 +50,6 @@ function setup() {
   document.addEventListener('keydown', spacePressed);
 }
 
-// ===== MAIN GAME LOOP =====
 function draw() {
   imageMode(CORNER);
   if (bgImg) image(bgImg, 0, 0, width, height);
@@ -66,7 +60,6 @@ function draw() {
   else endGame();
 }
 
-// ===== GAME SCREENS =====
 function startScreen() {
   soundButton.show();
   fill(255);
@@ -74,7 +67,6 @@ function startScreen() {
   textAlign(CENTER);
   text("BUG ESCAPE", width / 2, height / 2 - 80);
   
-  // New instructions
   textSize(18);
   text("ARROWS: Move & Aim\nSPACE: Shoot in moving direction", width / 2, height / 2 - 20);
   
@@ -89,14 +81,11 @@ function startScreen() {
 }
 
 function playGame() {
-  // Update time
   timeAlive++;
   
-  // Draw bug
   imageMode(CENTER);
   if (bugImg) image(bugImg, bug.x, bug.y, bug.w, bug.h);
   
-  // Movement (updates firing direction)
   handleBugMovement();
   
   // Spawn villains
